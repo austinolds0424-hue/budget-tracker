@@ -272,9 +272,9 @@
       try{
         const encoded=location.hash.slice(8).replace(/-/g,"+").replace(/_/g,"/");
         const payload=JSON.parse(atob(encoded));
-        if(!payload||!payload.year||!payload.months)throw new Error("Invalid update import");
+        if(!payload||!payload.year||(!payload.months&&!payload.vehiclePayments))throw new Error("Invalid update import");
         store.year=payload.year;
-        Object.entries(payload.months).forEach(([index,entry])=>{
+        Object.entries(payload.months||{}).forEach(([index,entry])=>{
           const key=monthKey(payload.year,Number(index));
           if(!store.months[key])store.months[key]=blankMonth();
           const data=normalizeMonth(store.months[key]);
