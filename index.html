@@ -55,6 +55,9 @@
     .transfer-row { display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid rgba(255,255,255,.07); font-size:.86rem; }
     .transfer-row:last-child { border-bottom:none; }
     .transfer-row span { color:var(--muted); }
+    .progress-track { height:10px; border-radius:999px; background:var(--input); border:1px solid var(--border); overflow:hidden; margin:10px 0 6px; }
+    .progress-fill { height:100%; width:0; background:var(--green); transition:width .2s ease; }
+    .compact-note { color:var(--muted); font-size:.78rem; line-height:1.4; margin-top:8px; }
     [hidden] { display:none !important; }
     @media(max-width:390px) { .tab-btn{font-size:.74rem}.item-row{grid-template-columns:minmax(0,1fr) 92px 28px;gap:6px}.add-box{grid-template-columns:minmax(0,1fr) 78px auto;gap:6px} }
   </style>
@@ -99,6 +102,27 @@
     <h2>Other e-Transfers by Recipient</h2>
     <div id="transferBreakdown"></div>
   </div>
+
+  <div id="vehicleCard" class="card">
+    <h2>Vehicle Purchases</h2>
+    <div class="transfer-row"><span>2010 Chevrolet Silverado 1500</span><strong id="vehiclePurchaseText">$0.00</strong></div>
+    <p class="compact-note">Kept separate from regular bills so a one-time vehicle purchase does not make the bill total look inflated.</p>
+  </div>
+
+  <div id="f350Card" class="card">
+    <h2>2003 F-350 — Lhea's Payments</h2>
+    <div class="input-row">
+      <label for="f350PriceInput">Agreed Sale Price ($)</label>
+      <input type="number" id="f350PriceInput" placeholder="Enter total sale price" inputmode="decimal" oninput="updateF350Price()">
+    </div>
+    <div class="stat-grid">
+      <div class="stat-box"><span>Paid This Month</span><strong id="f350MonthText">$0.00</strong></div>
+      <div class="stat-box"><span>Paid To Date</span><strong id="f350PaidText">$0.00</strong></div>
+      <div class="stat-box full"><span>Remaining</span><strong id="f350RemainingText" class="net">Enter sale price</strong></div>
+    </div>
+    <div class="progress-track" aria-label="F-350 payment progress"><div id="f350Progress" class="progress-fill"></div></div>
+    <p id="f350ProgressLabel" class="compact-note">Enter the sale price to see her progress.</p>
+  </div>
   </main>
 
   <section id="yearView" class="card" hidden>
@@ -136,7 +160,29 @@
     const defaultYear=today.getFullYear();
     const defaultMonth=today.getMonth();
     const monthKey=(year,index)=>year+"-"+String(index+1).padStart(2,"0");
-    const blankMonth=(items=[])=>({pay:{"15th":"",eom:""},items,actualSaved:"",cardPurchases:0,unnecessaryPurchases:0,otherTransfers:[]});
+    const blankMonth=(items=[])=>({pay:{"15th":"",eom:""},items,actualSaved:"",cardPurchases:0,unnecessaryPurchases:0,otherTransfers:[],vehiclePurchases:[],vehiclePaymentsReceived:[],internalTransfers:0});
+    function normalizeMonth(data){
+      data.items=Array.isArray(data.items)?data.items:[];
+      data.otherTransfers=Array.isArray(data.otherTransfers)?data.otherTransfers:[];
+      data.vehiclePurchases=Array.isArray(data.vehiclePurchases)?data.vehiclePurchases:[];
+      data.vehiclePaymentsReceived=Array.isArray(data.vehiclePaymentsReceived)?data.vehiclePaymentsReceived:[];
+      data.internalTransfers=parseFloat(data.internalTransfers)||0;
+      data.items=data.items.filter(item=>{
+        if(/rbc bills transfer/i.test(item.name||"")){data.internalTransfers+=parseFloat(item.amount)||0;return false}
+        return true;
+      });
+      const remaining=[];
+      data.otherTransfers.forEach(transfer=>{
+        const name=transfer.name||"";
+        if(/easyhome/i.test(name)){
+          if(!data.items.some(item=>item.source==="easyhome-transfer"))data.items.push({id:makeId(),name:"Easyhome",amount:parseFloat(transfer.amount)||0,period:"eom",source:"easyhome-transfer"});
+        }else if(/kostiantyn lutchenko/i.test(name)){
+          if(!data.vehiclePurchases.some(item=>/silverado/i.test(item.name||"")))data.vehiclePurchases.push({name:"2010 Chevrolet Silverado 1500",amount:parseFloat(transfer.amount)||0});
+        }else remaining.push(transfer);
+      });
+      data.otherTransfers=remaining;
+      return data;
+    }
     const freshStore=()=>{
       const key=monthKey(defaultYear,defaultMonth);
       return {version:3,year:defaultYear,selectedMonth:defaultMonth,months:{[key]:blankMonth(initialItems)}};
@@ -157,7 +203,7 @@
           const key=monthKey(defaultYear,defaultMonth);
           return {version:3,year:defaultYear,selectedMonth:defaultMonth,months:{[key]:oldMonth}};
         }
-        if(saved.version===3&&saved.months)return saved;
+        if(saved.version===3&&saved.months){Object.values(saved.months).forEach(normalizeMonth);return saved;}
       }catch(error){console.warn("Could not load saved budget data.",error)}
       return freshStore();
     }
@@ -206,6 +252,9 @@
           data.cardPurchases=entry.cardPurchases||0;
           data.unnecessaryPurchases=entry.unnecessaryPurchases||0;
           data.otherTransfers=entry.otherTransfers||[];
+          data.vehiclePurchases=entry.vehiclePurchases||data.vehiclePurchases||[];
+          data.vehiclePaymentsReceived=entry.vehiclePaymentsReceived||data.vehiclePaymentsReceived||[];
+          normalizeMonth(data);
         });
         saveStore();
         history.replaceState(null,"",location.pathname+location.search);
@@ -213,6 +262,28 @@
       }catch(error){
         history.replaceState(null,"",location.pathname+location.search);
         alert("The budget import link could not be read.");
+        console.warn(error);
+      }
+    }
+    function importUpdateFromLink(){
+      if(!location.hash.startsWith("#update="))return;
+      try{
+        const encoded=location.hash.slice(8).replace(/-/g,"+").replace(/_/g,"/");
+        const payload=JSON.parse(atob(encoded));
+        if(!payload||!payload.year||!payload.months)throw new Error("Invalid update import");
+        store.year=payload.year;
+        Object.entries(payload.months).forEach(([index,entry])=>{
+          const key=monthKey(payload.year,Number(index));
+          if(!store.months[key])store.months[key]=blankMonth();
+          const data=normalizeMonth(store.months[key]);
+          if(entry.vehiclePaymentsReceived)data.vehiclePaymentsReceived=entry.vehiclePaymentsReceived;
+        });
+        saveStore();
+        history.replaceState(null,"",location.pathname+location.search);
+        alert("Vehicle payments updated.");
+      }catch(error){
+        history.replaceState(null,"",location.pathname+location.search);
+        alert("The update link could not be read.");
         console.warn(error);
       }
     }
@@ -268,9 +339,11 @@
       document.getElementById("actualSavingsRow").style.display=monthly?"flex":"none";
       ["cardSpendBox","transferBox","unnecessaryBox"].forEach(id=>document.getElementById(id).style.display=monthly?"block":"none");
       document.getElementById("transferBreakdownCard").style.display=monthly?"block":"none";
+      document.getElementById("vehicleCard").style.display=monthly?"block":"none";
+      document.getElementById("f350Card").style.display=monthly?"block":"none";
       document.getElementById("actualSavingsInput").value=activeData().actualSaved||"";
       document.getElementById("remainingLabel").innerText=monthly?"Left Over (After Bills & Actual Savings)":"Discretionary Cash (After Bills & 20% Savings)";
-      renderItems();renderTransfers();calculate();
+      renderItems();renderTransfers();calculate();renderF350();
     }
 
     function renderItems(){
@@ -305,13 +378,30 @@
       if(!transfers.length){const empty=document.createElement("p");empty.className="empty-state";empty.innerText="No other outgoing e-Transfers recorded.";container.appendChild(empty);return}
       transfers.forEach(transfer=>{const row=document.createElement("div");row.className="transfer-row";const name=document.createElement("span"),amount=document.createElement("strong");name.innerText=transfer.name;amount.innerText=money(transfer.amount);row.append(name,amount);container.appendChild(row)});
     }
+    function updateF350Price(){store.f350SalePrice=document.getElementById("f350PriceInput").value;saveStore();renderF350()}
+    function f350PaidToDate(){
+      return Object.values(store.months).reduce((sum,data)=>sum+(data.vehiclePaymentsReceived||[]).reduce((part,item)=>part+(parseFloat(item.amount)||0),0),0);
+    }
+    function renderF350(){
+      const data=activeData(),monthPaid=(data.vehiclePaymentsReceived||[]).reduce((sum,item)=>sum+(parseFloat(item.amount)||0),0);
+      const paid=f350PaidToDate(),price=parseFloat(store.f350SalePrice)||0,remaining=Math.max(0,price-paid),percent=price?Math.min(100,paid/price*100):0;
+      document.getElementById("f350PriceInput").value=store.f350SalePrice||"";
+      document.getElementById("f350MonthText").innerText=money(monthPaid);
+      document.getElementById("f350PaidText").innerText=money(paid);
+      document.getElementById("f350RemainingText").innerText=price?money(remaining):"Enter sale price";
+      document.getElementById("f350Progress").style.width=percent+"%";
+      document.getElementById("f350ProgressLabel").innerText=price?percent.toFixed(1)+"% paid — "+money(remaining)+" remaining.":"Enter the sale price to see her progress.";
+    }
     function calculate(){
       const pay=tabPay(),savings=pay*.20,total=tabItems().reduce((sum,item)=>sum+(parseFloat(item.amount)||0),0);
       const data=activeData(),cardSpend=parseFloat(data.cardPurchases)||0,otherTransfers=(data.otherTransfers||[]).reduce((sum,item)=>sum+(parseFloat(item.amount)||0),0);
+      const vehiclePurchases=(data.vehiclePurchases||[]).reduce((sum,item)=>sum+(parseFloat(item.amount)||0),0);
+      const vehicleIncome=(data.vehiclePaymentsReceived||[]).reduce((sum,item)=>sum+(parseFloat(item.amount)||0),0);
       const deductedSavings=currentTab==="month"?(parseFloat(data.actualSaved)||0):savings;
-      const remaining=pay-total-deductedSavings-(currentTab==="month"?cardSpend+otherTransfers:0);
+      const remaining=pay+vehicleIncome-total-deductedSavings-(currentTab==="month"?cardSpend+otherTransfers+vehiclePurchases:0);
       document.getElementById("savingsText").innerText=money(savings);document.getElementById("outflowText").innerText=money(total);
       document.getElementById("cardSpendText").innerText=money(cardSpend);document.getElementById("transferText").innerText=money(otherTransfers);document.getElementById("unnecessaryText").innerText=money(parseFloat(data.unnecessaryPurchases)||0);
+      document.getElementById("vehiclePurchaseText").innerText=money(vehiclePurchases);
       const rem=document.getElementById("remainingText");rem.innerText=money(remaining);rem.style.color=remaining<0?"var(--red)":"var(--accent)";
     }
 
@@ -321,7 +411,9 @@
       const bills=data.items.reduce((sum,item)=>sum+(parseFloat(item.amount)||0),0);
       const target=income*.20,actual=parseFloat(data.actualSaved)||0,cardPurchases=parseFloat(data.cardPurchases)||0;
       const otherTransfers=(data.otherTransfers||[]).reduce((sum,item)=>sum+(parseFloat(item.amount)||0),0);
-      return {income,bills,target,actual,cardPurchases,unnecessary:parseFloat(data.unnecessaryPurchases)||0,otherTransfers,left:income-bills-cardPurchases-otherTransfers-actual,data};
+      const vehiclePurchases=(data.vehiclePurchases||[]).reduce((sum,item)=>sum+(parseFloat(item.amount)||0),0);
+      const vehiclePayments=(data.vehiclePaymentsReceived||[]).reduce((sum,item)=>sum+(parseFloat(item.amount)||0),0);
+      return {income,bills,target,actual,cardPurchases,unnecessary:parseFloat(data.unnecessaryPurchases)||0,otherTransfers,vehiclePurchases,vehiclePayments,left:income+vehiclePayments-bills-cardPurchases-otherTransfers-vehiclePurchases-actual,data};
     }
 
     function renderYear(){
@@ -331,10 +423,10 @@
         details.className="month-summary";
         const summary=document.createElement("summary");summary.innerText=name;
         const body=document.createElement("div");body.className="month-details";
-        [["Brought In Total",totals.income],["Bills",totals.bills],["Card Purchases",totals.cardPurchases],["Other e-Transfers",totals.otherTransfers],["Unnecessary Purchases",totals.unnecessary],["Savings Target (20%)",totals.target],["Actually Saved",totals.actual],["Left Over",totals.left]].forEach(([label,value],row)=>{
+        [["Take-Home Pay",totals.income],["F-350 Payments Received",totals.vehiclePayments],["Bills",totals.bills],["Card Purchases",totals.cardPurchases],["Other e-Transfers",totals.otherTransfers],["Vehicle Purchases",totals.vehiclePurchases],["Unnecessary Purchases",totals.unnecessary],["Savings Target (20%)",totals.target],["Actually Saved",totals.actual],["Left Over",totals.left]].forEach(([label,value],row)=>{
           const labelEl=document.createElement("span"),valueEl=document.createElement("strong");
           labelEl.innerText=label;valueEl.innerText=money(value);
-          if(row===7){labelEl.className="left-label";valueEl.className="left-value";valueEl.style.color=value<0?"var(--red)":"var(--green)"}
+          if(label==="Left Over"){labelEl.className="left-label";valueEl.className="left-value";valueEl.style.color=value<0?"var(--red)":"var(--green)"}
           body.append(labelEl,valueEl);
         });
         (totals.data.otherTransfers||[]).forEach(transfer=>{const label=document.createElement("span"),value=document.createElement("strong");label.innerText="↳ "+transfer.name;value.innerText=money(transfer.amount);body.append(label,value)});
@@ -346,6 +438,7 @@
     ["newItemName","newItemAmount"].forEach(id=>document.getElementById(id).addEventListener("keydown",event=>{if(event.key==="Enter")addItem()}));
     importIncomeFromLink();
     importBudgetFromLink();
+    importUpdateFromLink();
     setupMonthPicker();
     switchTab("month");
   </script>
