@@ -10,7 +10,7 @@
     * { box-sizing:border-box; margin:0; padding:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
     body { background:var(--bg); color:var(--text); padding:16px 16px 60px; max-width:540px; margin:0 auto; }
     h1 { font-size:1.3rem; text-align:center; margin-bottom:14px; letter-spacing:.4px; }
-    .tabs { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; margin-bottom:16px; }
+    .tabs { display:grid; grid-template-columns:repeat(2,1fr); gap:7px; margin-bottom:14px; }
     .tab-btn { padding:11px 6px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--muted); font-weight:600; font-size:.82rem; cursor:pointer; }
     .tab-btn.active { background:#4a4f55; color:#fff; border-color:#686e76; }
     .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:14px; }
@@ -38,6 +38,21 @@
     .stat-box strong { font-size:1.1rem; color:var(--green); display:block; }
     .stat-box.full { grid-column:span 2; }
     .stat-box strong.net { color:var(--accent); font-size:1.3rem; }
+    .month-picker { display:grid; grid-template-columns:auto 1fr; align-items:center; gap:10px; margin-bottom:14px; }
+    .month-picker label { color:var(--muted); font-size:.82rem; font-weight:600; }
+    .actual-row { margin-top:12px; }
+    .year-list { display:grid; gap:9px; }
+    .month-summary { background:var(--soft); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+    .month-summary summary { cursor:pointer; padding:14px; font-weight:700; color:var(--accent); list-style:none; display:flex; justify-content:space-between; align-items:center; }
+    .month-summary summary::-webkit-details-marker { display:none; }
+    .month-summary summary::after { content:"+"; color:var(--muted); font-size:1.2rem; }
+    .month-summary[open] summary::after { content:"−"; }
+    .month-details { display:grid; grid-template-columns:1fr auto; gap:9px 14px; padding:0 14px 14px; font-size:.86rem; }
+    .month-details span { color:var(--muted); }
+    .month-details strong { text-align:right; }
+    .month-details .left-label,.month-details .left-value { padding-top:9px; border-top:1px solid var(--border); color:var(--accent); }
+    .use-month { grid-column:1 / 3; background:#555b62; border:1px solid #6d737b; color:#fff; padding:9px; border-radius:8px; font-weight:600; cursor:pointer; margin-top:4px; }
+    [hidden] { display:none !important; }
     @media(max-width:390px) { .tab-btn{font-size:.74rem}.item-row{grid-template-columns:minmax(0,1fr) 92px 28px;gap:6px}.add-box{grid-template-columns:minmax(0,1fr) 78px auto;gap:6px} }
   </style>
 </head>
@@ -47,8 +62,15 @@
     <button id="tab-month" class="tab-btn active" onclick="switchTab('month')">Monthly</button>
     <button id="tab-15th" class="tab-btn" onclick="switchTab('15th')">15th Period</button>
     <button id="tab-eom" class="tab-btn" onclick="switchTab('eom')">End of Month</button>
+    <button id="tab-year" class="tab-btn" onclick="switchTab('year')">12-Month Summary</button>
   </div>
 
+  <div id="monthPicker" class="card month-picker">
+    <label for="activeMonth">Working month</label>
+    <select id="activeMonth" onchange="changeMonth(this.value)"></select>
+  </div>
+
+  <main id="budgetView">
   <div class="card">
     <h2 id="incomeTitle">Monthly Income & Savings</h2>
     <div class="input-row">
@@ -59,9 +81,20 @@
     <div class="stat-grid">
       <div class="stat-box"><span>Target Savings (20%)</span><strong id="savingsText">$0.00</strong></div>
       <div class="stat-box"><span>Total Bills & Paybacks</span><strong id="outflowText" style="color:var(--orange)">$0.00</strong></div>
-      <div class="stat-box full"><span>Discretionary Cash (After Bills & 20% Savings)</span><strong id="remainingText" class="net">$0.00</strong></div>
+      <div class="stat-box full"><span id="remainingLabel">Left Over (After Bills & Actual Savings)</span><strong id="remainingText" class="net">$0.00</strong></div>
+    </div>
+    <div id="actualSavingsRow" class="input-row actual-row">
+      <label for="actualSavingsInput">Amount Actually Saved ($)</label>
+      <input type="number" id="actualSavingsInput" placeholder="Enter amount transferred" inputmode="decimal" oninput="updateActualSavings()">
     </div>
   </div>
+  </main>
+
+  <section id="yearView" class="card" hidden>
+    <h2 id="yearTitle">12-Month Summary</h2>
+    <p class="helper">Tap a month to expand its totals.</p>
+    <div id="yearList" class="year-list"></div>
+  </section>
 
   <div class="card">
     <h2 id="periodTitle">All Monthly Bills & Paybacks</h2>
@@ -86,19 +119,34 @@
       {id:"justine-eom",name:"Justine",amount:412,period:"eom"},
       {id:"spotify-eom",name:"Spotify",amount:25,period:"eom"}
     ];
-    const freshStore=()=>({pay:{"15th":"",eom:""},items:initialItems});
     const makeId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+    const monthNames=["January","February","March","April","May","June","July","August","September","October","November","December"];
+    const today=new Date();
+    const defaultYear=today.getFullYear();
+    const defaultMonth=today.getMonth();
+    const monthKey=(year,index)=>year+"-"+String(index+1).padStart(2,"0");
+    const blankMonth=(items=[])=>({pay:{"15th":"",eom:""},items,actualSaved:""});
+    const freshStore=()=>{
+      const key=monthKey(defaultYear,defaultMonth);
+      return {version:3,year:defaultYear,selectedMonth:defaultMonth,months:{[key]:blankMonth(initialItems)}};
+    };
 
     function loadStore(){
       try{
         const saved=JSON.parse(localStorage.getItem("budget_app_data"));
         if(!saved)return freshStore();
+        let oldMonth;
         if(saved["15th"]&&saved.eom){
           const items=[];
           ["15th","eom"].forEach(period=>(saved[period].items||[]).forEach(item=>items.push({id:makeId(),name:item.name,amount:parseFloat(item.amount)||0,period})));
-          return {pay:{"15th":saved["15th"].pay||"",eom:saved.eom.pay||""},items};
+          oldMonth={pay:{"15th":saved["15th"].pay||"",eom:saved.eom.pay||""},items,actualSaved:""};
         }
-        if(saved.pay&&Array.isArray(saved.items))return saved;
+        if(saved.pay&&Array.isArray(saved.items))oldMonth={pay:saved.pay,items:saved.items,actualSaved:saved.actualSaved||""};
+        if(oldMonth){
+          const key=monthKey(defaultYear,defaultMonth);
+          return {version:3,year:defaultYear,selectedMonth:defaultMonth,months:{[key]:oldMonth}};
+        }
+        if(saved.version===3&&saved.months)return saved;
       }catch(error){console.warn("Could not load saved budget data.",error)}
       return freshStore();
     }
@@ -107,21 +155,58 @@
     let store=loadStore();
     const saveStore=()=>localStorage.setItem("budget_app_data",JSON.stringify(store));
     const money=value=>"$"+value.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
-    const tabItems=()=>currentTab==="month"?store.items:store.items.filter(item=>item.period===currentTab);
-    const tabPay=()=>currentTab==="month"?(parseFloat(store.pay["15th"])||0)+(parseFloat(store.pay.eom)||0):parseFloat(store.pay[currentTab])||0;
+    function activeData(){
+      const key=monthKey(store.year,store.selectedMonth);
+      if(!store.months[key])store.months[key]=blankMonth();
+      return store.months[key];
+    }
+    const tabItems=()=>{
+      const data=activeData();
+      return currentTab==="month"?data.items:data.items.filter(item=>item.period===currentTab);
+    };
+    const tabPay=()=>{
+      const pay=activeData().pay;
+      return currentTab==="month"?(parseFloat(pay["15th"])||0)+(parseFloat(pay.eom)||0):parseFloat(pay[currentTab])||0;
+    };
+
+    function setupMonthPicker(){
+      const picker=document.getElementById("activeMonth");
+      picker.innerHTML="";
+      monthNames.forEach((name,index)=>{
+        const option=document.createElement("option");
+        option.value=index;option.innerText=name+" "+store.year;picker.appendChild(option);
+      });
+      picker.value=store.selectedMonth;
+      document.getElementById("yearTitle").innerText=store.year+" Monthly Summary";
+    }
+
+    function changeMonth(value){
+      store.selectedMonth=parseInt(value,10);
+      activeData();saveStore();
+      if(currentTab==="year")renderYear();
+      else switchTab(currentTab);
+    }
 
     function switchTab(tab){
       currentTab=tab;
-      ["month","15th","eom"].forEach(name=>document.getElementById("tab-"+name).classList.toggle("active",tab===name));
+      ["month","15th","eom","year"].forEach(name=>document.getElementById("tab-"+name).classList.toggle("active",tab===name));
+      const yearly=tab==="year";
+      document.getElementById("budgetView").hidden=yearly;
+      document.getElementById("yearView").hidden=!yearly;
+      document.getElementById("monthPicker").hidden=yearly;
+      if(yearly){renderYear();return}
       const monthly=tab==="month";
       document.getElementById("incomeTitle").innerText=monthly?"Monthly Income & Savings":"Take-Home Pay & Savings";
       document.getElementById("payLabel").innerText=monthly?"Combined Take-Home Pay ($)":"Take-Home Pay Received ($)";
       document.getElementById("periodTitle").innerText=monthly?"All Monthly Bills & Paybacks":tab==="15th"?"15th Bills & Paybacks":"End of Month Bills";
       const payInput=document.getElementById("payInput");
       payInput.readOnly=monthly;
-      payInput.value=monthly?tabPay():(store.pay[tab]||"");
+      payInput.value=monthly?tabPay():(activeData().pay[tab]||"");
       document.getElementById("payHelper").style.display=monthly?"block":"none";
       document.getElementById("newItemPeriod").style.display=monthly?"block":"none";
+      document.getElementById("actualSavingsRow").style.display=monthly?"flex":"none";
+      document.getElementById("actualSavingsInput").value=activeData().actualSaved||"";
+      document.getElementById("remainingLabel").innerText=monthly?"Left Over (After Bills & Actual Savings)":"Discretionary Cash (After Bills & 20% Savings)";
       renderItems();calculate();
     }
 
@@ -140,22 +225,53 @@
       });
     }
 
-    function updateItemName(id,value){const item=store.items.find(x=>x.id===id);if(!item||!value.trim())return renderItems();item.name=value.trim();saveStore();renderItems()}
-    function updateItemAmount(id,value){const item=store.items.find(x=>x.id===id);if(!item)return;item.amount=parseFloat(value)||0;saveStore();calculate()}
+    function updateItemName(id,value){const item=activeData().items.find(x=>x.id===id);if(!item||!value.trim())return renderItems();item.name=value.trim();saveStore();renderItems();renderYear()}
+    function updateItemAmount(id,value){const item=activeData().items.find(x=>x.id===id);if(!item)return;item.amount=parseFloat(value)||0;saveStore();calculate()}
     function addItem(){
       const nameInput=document.getElementById("newItemName"),amountInput=document.getElementById("newItemAmount"),name=nameInput.value.trim();
       if(!name)return nameInput.focus();
       const period=currentTab==="month"?document.getElementById("newItemPeriod").value:currentTab;
-      store.items.push({id:makeId(),name,amount:parseFloat(amountInput.value)||0,period});saveStore();nameInput.value="";amountInput.value="";renderItems();calculate();
+      activeData().items.push({id:makeId(),name,amount:parseFloat(amountInput.value)||0,period});saveStore();nameInput.value="";amountInput.value="";renderItems();calculate();
     }
-    function removeItem(id){store.items=store.items.filter(item=>item.id!==id);saveStore();renderItems();calculate()}
-    function updatePay(){if(currentTab==="month")return;store.pay[currentTab]=document.getElementById("payInput").value;saveStore();calculate()}
+    function removeItem(id){activeData().items=activeData().items.filter(item=>item.id!==id);saveStore();renderItems();calculate()}
+    function updatePay(){if(currentTab==="month"||currentTab==="year")return;activeData().pay[currentTab]=document.getElementById("payInput").value;saveStore();calculate()}
+    function updateActualSavings(){activeData().actualSaved=document.getElementById("actualSavingsInput").value;saveStore();calculate()}
     function calculate(){
-      const pay=tabPay(),savings=pay*.20,total=tabItems().reduce((sum,item)=>sum+(parseFloat(item.amount)||0),0),remaining=pay-total-savings;
+      const pay=tabPay(),savings=pay*.20,total=tabItems().reduce((sum,item)=>sum+(parseFloat(item.amount)||0),0);
+      const deductedSavings=currentTab==="month"?(parseFloat(activeData().actualSaved)||0):savings;
+      const remaining=pay-total-deductedSavings;
       document.getElementById("savingsText").innerText=money(savings);document.getElementById("outflowText").innerText=money(total);
       const rem=document.getElementById("remainingText");rem.innerText=money(remaining);rem.style.color=remaining<0?"var(--red)":"var(--accent)";
     }
+
+    function totalsFor(index){
+      const data=store.months[monthKey(store.year,index)]||blankMonth();
+      const income=(parseFloat(data.pay["15th"])||0)+(parseFloat(data.pay.eom)||0);
+      const bills=data.items.reduce((sum,item)=>sum+(parseFloat(item.amount)||0),0);
+      const target=income*.20,actual=parseFloat(data.actualSaved)||0;
+      return {income,bills,target,actual,left:income-bills-actual};
+    }
+
+    function renderYear(){
+      const list=document.getElementById("yearList");list.innerHTML="";
+      monthNames.forEach((name,index)=>{
+        const totals=totalsFor(index),details=document.createElement("details");
+        details.className="month-summary";
+        const summary=document.createElement("summary");summary.innerText=name;
+        const body=document.createElement("div");body.className="month-details";
+        [["Brought In Total",totals.income],["Bills",totals.bills],["Savings Target (20%)",totals.target],["Actually Saved",totals.actual],["Left Over",totals.left]].forEach(([label,value],row)=>{
+          const labelEl=document.createElement("span"),valueEl=document.createElement("strong");
+          labelEl.innerText=label;valueEl.innerText=money(value);
+          if(row===4){labelEl.className="left-label";valueEl.className="left-value";valueEl.style.color=value<0?"var(--red)":"var(--green)"}
+          body.append(labelEl,valueEl);
+        });
+        const button=document.createElement("button");button.className="use-month";button.innerText="Open "+name+" Budget";
+        button.addEventListener("click",()=>{store.selectedMonth=index;document.getElementById("activeMonth").value=index;saveStore();switchTab("month")});
+        body.appendChild(button);details.append(summary,body);list.appendChild(details);
+      });
+    }
     ["newItemName","newItemAmount"].forEach(id=>document.getElementById(id).addEventListener("keydown",event=>{if(event.key==="Enter")addItem()}));
+    setupMonthPicker();
     switchTab("month");
   </script>
 </body>
