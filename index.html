@@ -155,6 +155,28 @@
     let store=loadStore();
     const saveStore=()=>localStorage.setItem("budget_app_data",JSON.stringify(store));
     const money=value=>"$"+value.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+
+    function importIncomeFromLink(){
+      if(!location.hash.startsWith("#income="))return;
+      try{
+        const encoded=location.hash.slice(8).replace(/-/g,"+").replace(/_/g,"/");
+        const payload=JSON.parse(atob(encoded));
+        if(!payload||!payload.year||!payload.months)throw new Error("Invalid income import");
+        store.year=payload.year;
+        Object.entries(payload.months).forEach(([index,pay])=>{
+          const key=monthKey(payload.year,Number(index));
+          if(!store.months[key])store.months[key]=blankMonth();
+          store.months[key].pay={"15th":String(pay["15th"]||""),eom:String(pay.eom||"")};
+        });
+        saveStore();
+        history.replaceState(null,"",location.pathname+location.search);
+        alert("Income totals imported for January through August "+payload.year+".");
+      }catch(error){
+        history.replaceState(null,"",location.pathname+location.search);
+        alert("The income import link could not be read.");
+        console.warn(error);
+      }
+    }
     function activeData(){
       const key=monthKey(store.year,store.selectedMonth);
       if(!store.months[key])store.months[key]=blankMonth();
@@ -271,6 +293,7 @@
       });
     }
     ["newItemName","newItemAmount"].forEach(id=>document.getElementById(id).addEventListener("keydown",event=>{if(event.key==="Enter")addItem()}));
+    importIncomeFromLink();
     setupMonthPicker();
     switchTab("month");
   </script>
