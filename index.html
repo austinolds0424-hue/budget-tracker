@@ -3,206 +3,160 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#202225">
   <title>Personal Budget</title>
   <style>
-    :root {
-      --bg: #0b1329;
-      --card: #172242;
-      --border: #283764;
-      --accent: #38bdf8;
-      --green: #22c55e;
-      --red: #f43f5e;
-      --text: #f8fafc;
-      --muted: #94a3b8;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-    body { background: var(--bg); color: var(--text); padding: 16px; padding-bottom: 60px; max-width: 500px; margin: 0 auto; }
-    h1 { font-size: 1.3rem; font-weight: 700; text-align: center; margin-bottom: 14px; letter-spacing: 0.5px; }
-    
-    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
-    .tab-btn { flex: 1; padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--card); color: var(--muted); font-weight: 600; font-size: 0.9rem; cursor: pointer; }
-    .tab-btn.active { background: #0284c7; color: white; border-color: var(--accent); }
-
-    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
-    .card h2 { font-size: 1rem; color: var(--accent); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-
-    .input-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
-    .input-row label { font-size: 0.8rem; color: var(--muted); }
-    input[type="number"], input[type="text"] { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: #0b1329; color: white; font-size: 1rem; }
-
-    .item-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); gap: 8px; }
-    .item-row:last-child { border-bottom: none; }
-    .item-name { flex: 1; font-size: 0.95rem; }
-    .item-input-wrap { width: 110px; }
-    .item-input-wrap input { text-align: right; }
-    .del-btn { background: none; border: none; color: var(--red); font-size: 1.1rem; cursor: pointer; padding: 0 4px; }
-
-    .add-box { display: flex; gap: 8px; margin-top: 10px; }
-    .add-box input[type="text"] { flex: 1; font-size: 0.85rem; }
-    .add-box input[type="number"] { width: 90px; font-size: 0.85rem; }
-    .btn-add { background: #0284c7; border: none; color: white; padding: 0 14px; border-radius: 8px; font-weight: 600; cursor: pointer; }
-
-    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
-    .stat-box { background: #0b1329; padding: 12px; border-radius: 8px; border: 1px solid var(--border); }
-    .stat-box span { font-size: 0.75rem; color: var(--muted); display: block; margin-bottom: 4px; }
-    .stat-box strong { font-size: 1.15rem; color: var(--green); display: block; }
-    .stat-box.full { grid-column: span 2; }
-    .stat-box strong.net { color: var(--accent); font-size: 1.3rem; }
+    :root { --bg:#202225; --card:#2a2d31; --soft:#24272a; --border:#42464c; --accent:#d7dbe0; --green:#9fbea8; --red:#d29a9a; --orange:#c4aa8b; --text:#eceff1; --muted:#a3a8ae; --input:#1c1e21; }
+    * { box-sizing:border-box; margin:0; padding:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+    body { background:var(--bg); color:var(--text); padding:16px 16px 60px; max-width:540px; margin:0 auto; }
+    h1 { font-size:1.3rem; text-align:center; margin-bottom:14px; letter-spacing:.4px; }
+    .tabs { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; margin-bottom:16px; }
+    .tab-btn { padding:11px 6px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--muted); font-weight:600; font-size:.82rem; cursor:pointer; }
+    .tab-btn.active { background:#4a4f55; color:#fff; border-color:#686e76; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:14px; }
+    .card h2 { font-size:.92rem; color:var(--accent); margin-bottom:12px; text-transform:uppercase; letter-spacing:.6px; }
+    .input-row { display:flex; flex-direction:column; gap:5px; margin-bottom:10px; }
+    .input-row label,.helper { font-size:.78rem; color:var(--muted); }
+    .helper { margin:-3px 0 12px; line-height:1.35; }
+    input,select { width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--input); color:var(--text); font-size:1rem; }
+    input:focus,select:focus { outline:2px solid #626870; outline-offset:1px; }
+    input[readonly] { color:var(--accent); background:var(--soft); }
+    .item-row { display:grid; grid-template-columns:minmax(0,1fr) 108px 32px; align-items:center; padding:10px 0; border-bottom:1px solid rgba(255,255,255,.07); gap:8px; }
+    .item-row:last-child { border-bottom:none; }
+    .item-name-input { font-size:.92rem; padding:9px; }
+    .item-amount { text-align:right; }
+    .period-pill { display:inline-block; color:var(--muted); font-size:.7rem; margin-top:5px; padding-left:2px; }
+    .del-btn { background:transparent; border:none; color:var(--red); font-size:1.25rem; cursor:pointer; padding:6px; }
+    .empty-state { color:var(--muted); text-align:center; padding:16px 0 8px; font-size:.88rem; }
+    .add-box { display:grid; grid-template-columns:minmax(0,1fr) 92px auto; gap:8px; margin-top:12px; }
+    .add-box input,.add-box select { font-size:.84rem; }
+    .add-box select { grid-column:1 / 3; }
+    .btn-add { background:#555b62; border:1px solid #6d737b; color:#fff; padding:0 13px; border-radius:8px; font-weight:600; cursor:pointer; }
+    .stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
+    .stat-box { background:var(--soft); padding:12px; border-radius:8px; border:1px solid var(--border); }
+    .stat-box span { font-size:.72rem; color:var(--muted); display:block; margin-bottom:4px; }
+    .stat-box strong { font-size:1.1rem; color:var(--green); display:block; }
+    .stat-box.full { grid-column:span 2; }
+    .stat-box strong.net { color:var(--accent); font-size:1.3rem; }
+    @media(max-width:390px) { .tab-btn{font-size:.74rem}.item-row{grid-template-columns:minmax(0,1fr) 92px 28px;gap:6px}.add-box{grid-template-columns:minmax(0,1fr) 78px auto;gap:6px} }
   </style>
 </head>
 <body>
-
   <h1>Budget & Cash Flow</h1>
-
   <div class="tabs">
-    <button id="tab-15th" class="tab-btn active" onclick="switchTab('15th')">15th Pay Period</button>
+    <button id="tab-month" class="tab-btn active" onclick="switchTab('month')">Monthly</button>
+    <button id="tab-15th" class="tab-btn" onclick="switchTab('15th')">15th Period</button>
     <button id="tab-eom" class="tab-btn" onclick="switchTab('eom')">End of Month</button>
   </div>
 
-  <!-- Income & Savings Card -->
   <div class="card">
-    <h2>Take-Home Pay & Savings</h2>
+    <h2 id="incomeTitle">Monthly Income & Savings</h2>
     <div class="input-row">
-      <label>Take-Home Pay Received ($)</label>
-      <input type="number" id="payInput" placeholder="Enter amount (e.g. 7766)" oninput="updateData()">
+      <label id="payLabel" for="payInput">Combined Take-Home Pay ($)</label>
+      <input type="number" id="payInput" placeholder="Enter take-home pay" oninput="updatePay()">
     </div>
+    <p id="payHelper" class="helper">Calculated automatically from both pay periods.</p>
     <div class="stat-grid">
-      <div class="stat-box">
-        <span>Target Savings (20%)</span>
-        <strong id="savingsText">$0.00</strong>
-      </div>
-      <div class="stat-box">
-        <span>Total Outflows</span>
-        <strong id="outflowText" style="color: #fb923c;">$0.00</strong>
-      </div>
-      <div class="stat-box full">
-        <span>Discretionary Cash (After Bills & 20% Savings)</span>
-        <strong id="remainingText" class="net">$0.00</strong>
-      </div>
+      <div class="stat-box"><span>Target Savings (20%)</span><strong id="savingsText">$0.00</strong></div>
+      <div class="stat-box"><span>Total Bills & Paybacks</span><strong id="outflowText" style="color:var(--orange)">$0.00</strong></div>
+      <div class="stat-box full"><span>Discretionary Cash (After Bills & 20% Savings)</span><strong id="remainingText" class="net">$0.00</strong></div>
     </div>
   </div>
 
-  <!-- Expenses Card -->
   <div class="card">
-    <h2 id="periodTitle">Expenses & Paybacks</h2>
+    <h2 id="periodTitle">All Monthly Bills & Paybacks</h2>
     <div id="itemList"></div>
-
     <div class="add-box">
       <input type="text" id="newItemName" placeholder="New bill or payback">
-      <input type="number" id="newItemAmount" placeholder="$">
+      <input type="number" id="newItemAmount" placeholder="$" inputmode="decimal">
+      <select id="newItemPeriod" aria-label="Pay period"><option value="15th">15th pay period</option><option value="eom">End of month</option></select>
       <button class="btn-add" onclick="addItem()">+ Add</button>
     </div>
   </div>
 
   <script>
-    const defaultData = {
-      "15th": {
-        pay: "",
-        items: [
-          { name: "Valerie", amount: 935 },
-          { name: "Justine", amount: 413 },
-          { name: "Insurance", amount: 200 },
-          { name: "Phone", amount: 300 },
-          { name: "Logan (2000 F-350)", amount: 500 }
-        ]
-      },
-      "eom": {
-        pay: "",
-        items: [
-          { name: "Rent", amount: 1000 },
-          { name: "Valerie", amount: 935 },
-          { name: "Justine", amount: 412 },
-          { name: "Spotify", amount: 25 }
-        ]
-      }
-    };
+    const initialItems = [
+      {id:"valerie-15",name:"Valerie",amount:935,period:"15th"},
+      {id:"justine-15",name:"Justine",amount:413,period:"15th"},
+      {id:"insurance-15",name:"Insurance",amount:200,period:"15th"},
+      {id:"phone-15",name:"Phone",amount:300,period:"15th"},
+      {id:"logan-f350-15",name:"Logan (2000 F-350)",amount:500,period:"15th"},
+      {id:"rent-eom",name:"Rent",amount:1000,period:"eom"},
+      {id:"valerie-eom",name:"Valerie",amount:935,period:"eom"},
+      {id:"justine-eom",name:"Justine",amount:412,period:"eom"},
+      {id:"spotify-eom",name:"Spotify",amount:25,period:"eom"}
+    ];
+    const freshStore=()=>({pay:{"15th":"",eom:""},items:initialItems});
+    const makeId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
 
-    let currentTab = "15th";
-    let store = JSON.parse(localStorage.getItem("budget_app_data")) || defaultData;
-
-    function saveStore() {
-      localStorage.setItem("budget_app_data", JSON.stringify(store));
+    function loadStore(){
+      try{
+        const saved=JSON.parse(localStorage.getItem("budget_app_data"));
+        if(!saved)return freshStore();
+        if(saved["15th"]&&saved.eom){
+          const items=[];
+          ["15th","eom"].forEach(period=>(saved[period].items||[]).forEach(item=>items.push({id:makeId(),name:item.name,amount:parseFloat(item.amount)||0,period})));
+          return {pay:{"15th":saved["15th"].pay||"",eom:saved.eom.pay||""},items};
+        }
+        if(saved.pay&&Array.isArray(saved.items))return saved;
+      }catch(error){console.warn("Could not load saved budget data.",error)}
+      return freshStore();
     }
 
-    function switchTab(tab) {
-      currentTab = tab;
-      document.getElementById("tab-15th").classList.toggle("active", tab === "15th");
-      document.getElementById("tab-eom").classList.toggle("active", tab === "eom");
-      document.getElementById("periodTitle").innerText = tab === "15th" ? "15th Bills & Paybacks" : "End of Month Bills";
-      document.getElementById("payInput").value = store[currentTab].pay || "";
-      renderItems();
-      calculate();
+    let currentTab="month";
+    let store=loadStore();
+    const saveStore=()=>localStorage.setItem("budget_app_data",JSON.stringify(store));
+    const money=value=>"$"+value.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+    const tabItems=()=>currentTab==="month"?store.items:store.items.filter(item=>item.period===currentTab);
+    const tabPay=()=>currentTab==="month"?(parseFloat(store.pay["15th"])||0)+(parseFloat(store.pay.eom)||0):parseFloat(store.pay[currentTab])||0;
+
+    function switchTab(tab){
+      currentTab=tab;
+      ["month","15th","eom"].forEach(name=>document.getElementById("tab-"+name).classList.toggle("active",tab===name));
+      const monthly=tab==="month";
+      document.getElementById("incomeTitle").innerText=monthly?"Monthly Income & Savings":"Take-Home Pay & Savings";
+      document.getElementById("payLabel").innerText=monthly?"Combined Take-Home Pay ($)":"Take-Home Pay Received ($)";
+      document.getElementById("periodTitle").innerText=monthly?"All Monthly Bills & Paybacks":tab==="15th"?"15th Bills & Paybacks":"End of Month Bills";
+      const payInput=document.getElementById("payInput");
+      payInput.readOnly=monthly;
+      payInput.value=monthly?tabPay():(store.pay[tab]||"");
+      document.getElementById("payHelper").style.display=monthly?"block":"none";
+      document.getElementById("newItemPeriod").style.display=monthly?"block":"none";
+      renderItems();calculate();
     }
 
-    function renderItems() {
-      const container = document.getElementById("itemList");
-      container.innerHTML = "";
-      const items = store[currentTab].items;
-
-      items.forEach((item, index) => {
-        const row = document.createElement("div");
-        row.className = "item-row";
-        row.innerHTML = `
-          <span class="item-name">${item.name}</span>
-          <div class="item-input-wrap">
-            <input type="number" value="${item.amount || ''}" onchange="updateItemAmount(${index}, this.value)" placeholder="0">
-          </div>
-          <button class="del-btn" onclick="removeItem(${index})">&times;</button>
-        `;
-        container.appendChild(row);
+    function renderItems(){
+      const container=document.getElementById("itemList");container.innerHTML="";
+      const items=tabItems();
+      if(!items.length){const empty=document.createElement("p");empty.className="empty-state";empty.innerText="No bills added for this period yet.";container.appendChild(empty);return}
+      items.forEach(item=>{
+        const row=document.createElement("div");row.className="item-row";
+        const nameWrap=document.createElement("div");
+        const nameInput=document.createElement("input");nameInput.className="item-name-input";nameInput.type="text";nameInput.value=item.name;nameInput.setAttribute("aria-label","Bill name");nameInput.addEventListener("change",event=>updateItemName(item.id,event.target.value));nameWrap.appendChild(nameInput);
+        if(currentTab==="month"){const period=document.createElement("span");period.className="period-pill";period.innerText=item.period==="15th"?"15th pay period":"End of month";nameWrap.appendChild(period)}
+        const amountInput=document.createElement("input");amountInput.className="item-amount";amountInput.type="number";amountInput.value=item.amount||"";amountInput.placeholder="0";amountInput.setAttribute("aria-label",item.name+" amount");amountInput.addEventListener("input",event=>updateItemAmount(item.id,event.target.value));
+        const del=document.createElement("button");del.className="del-btn";del.innerHTML="&times;";del.setAttribute("aria-label","Delete "+item.name);del.addEventListener("click",()=>removeItem(item.id));
+        row.append(nameWrap,amountInput,del);container.appendChild(row);
       });
     }
 
-    function updateItemAmount(index, val) {
-      store[currentTab].items[index].amount = parseFloat(val) || 0;
-      saveStore();
-      calculate();
+    function updateItemName(id,value){const item=store.items.find(x=>x.id===id);if(!item||!value.trim())return renderItems();item.name=value.trim();saveStore();renderItems()}
+    function updateItemAmount(id,value){const item=store.items.find(x=>x.id===id);if(!item)return;item.amount=parseFloat(value)||0;saveStore();calculate()}
+    function addItem(){
+      const nameInput=document.getElementById("newItemName"),amountInput=document.getElementById("newItemAmount"),name=nameInput.value.trim();
+      if(!name)return nameInput.focus();
+      const period=currentTab==="month"?document.getElementById("newItemPeriod").value:currentTab;
+      store.items.push({id:makeId(),name,amount:parseFloat(amountInput.value)||0,period});saveStore();nameInput.value="";amountInput.value="";renderItems();calculate();
     }
-
-    function addItem() {
-      const nameInput = document.getElementById("newItemName");
-      const amtInput = document.getElementById("newItemAmount");
-      const name = nameInput.value.trim();
-      const amount = parseFloat(amtInput.value) || 0;
-
-      if (!name) return;
-      store[currentTab].items.push({ name, amount });
-      saveStore();
-      nameInput.value = "";
-      amtInput.value = "";
-      renderItems();
-      calculate();
+    function removeItem(id){store.items=store.items.filter(item=>item.id!==id);saveStore();renderItems();calculate()}
+    function updatePay(){if(currentTab==="month")return;store.pay[currentTab]=document.getElementById("payInput").value;saveStore();calculate()}
+    function calculate(){
+      const pay=tabPay(),savings=pay*.20,total=tabItems().reduce((sum,item)=>sum+(parseFloat(item.amount)||0),0),remaining=pay-total-savings;
+      document.getElementById("savingsText").innerText=money(savings);document.getElementById("outflowText").innerText=money(total);
+      const rem=document.getElementById("remainingText");rem.innerText=money(remaining);rem.style.color=remaining<0?"var(--red)":"var(--accent)";
     }
-
-    function removeItem(index) {
-      store[currentTab].items.splice(index, 1);
-      saveStore();
-      renderItems();
-      calculate();
-    }
-
-    function updateData() {
-      store[currentTab].pay = document.getElementById("payInput").value;
-      saveStore();
-      calculate();
-    }
-
-    function calculate() {
-      const pay = parseFloat(store[currentTab].pay) || 0;
-      const savings = pay * 0.20;
-      const totalOutflows = store[currentTab].items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
-      const remaining = pay - totalOutflows - savings;
-
-      document.getElementById("savingsText").innerText = "$" + savings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      document.getElementById("outflowText").innerText = "$" + totalOutflows.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      
-      const remEl = document.getElementById("remainingText");
-      remEl.innerText = "$" + remaining.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      remEl.style.color = remaining < 0 ? "var(--red)" : "var(--accent)";
-    }
-
-    // Initial render
-    switchTab("15th");
+    ["newItemName","newItemAmount"].forEach(id=>document.getElementById(id).addEventListener("keydown",event=>{if(event.key==="Enter")addItem()}));
+    switchTab("month");
   </script>
 </body>
 </html>
