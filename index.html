@@ -116,9 +116,11 @@
       <input type="number" id="f350PriceInput" placeholder="Enter total sale price" inputmode="decimal" oninput="updateF350Price()">
     </div>
     <div class="stat-grid">
-      <div class="stat-box"><span>Paid This Month</span><strong id="f350MonthText">$0.00</strong></div>
-      <div class="stat-box"><span>Paid To Date</span><strong id="f350PaidText">$0.00</strong></div>
-      <div class="stat-box full"><span>Remaining</span><strong id="f350RemainingText" class="net">Enter sale price</strong></div>
+      <div class="stat-box"><span>Truck Payments This Month</span><strong id="f350MonthText">$0.00</strong></div>
+      <div class="stat-box"><span>Truck Payments To Date</span><strong id="f350PaidText">$0.00</strong></div>
+      <div class="stat-box"><span>Truck Balance</span><strong id="f350TruckBalanceText">$0.00</strong></div>
+      <div class="stat-box"><span>Other Money Owed</span><strong id="f350OtherDebtText" style="color:var(--orange)">$0.00</strong></div>
+      <div class="stat-box full"><span>Total Still Owing</span><strong id="f350RemainingText" class="net">Enter sale price</strong></div>
     </div>
     <div class="progress-track" aria-label="F-350 payment progress"><div id="f350Progress" class="progress-fill"></div></div>
     <p id="f350ProgressLabel" class="compact-note">Enter the sale price to see her progress.</p>
@@ -278,6 +280,15 @@
           const data=normalizeMonth(store.months[key]);
           if(entry.vehiclePaymentsReceived)data.vehiclePaymentsReceived=entry.vehiclePaymentsReceived;
         });
+        if(payload.replaceVehiclePayments)Object.values(store.months).forEach(data=>data.vehiclePaymentsReceived=[]);
+        (payload.vehiclePayments||[]).forEach(payment=>{
+          const date=new Date(payment.date+"T12:00:00");
+          const key=monthKey(date.getFullYear(),date.getMonth());
+          if(!store.months[key])store.months[key]=blankMonth();
+          store.months[key].vehiclePaymentsReceived.push({name:payment.name||"Lhea - 2003 F-350 payment",amount:payment.amount,date:payment.date});
+        });
+        if(payload.f350SalePrice!==undefined)store.f350SalePrice=String(payload.f350SalePrice);
+        if(payload.f350OtherDebt!==undefined)store.f350OtherDebt=parseFloat(payload.f350OtherDebt)||0;
         saveStore();
         history.replaceState(null,"",location.pathname+location.search);
         alert("Vehicle payments updated.");
@@ -384,13 +395,15 @@
     }
     function renderF350(){
       const data=activeData(),monthPaid=(data.vehiclePaymentsReceived||[]).reduce((sum,item)=>sum+(parseFloat(item.amount)||0),0);
-      const paid=f350PaidToDate(),price=parseFloat(store.f350SalePrice)||0,remaining=Math.max(0,price-paid),percent=price?Math.min(100,paid/price*100):0;
+      const paid=f350PaidToDate(),price=parseFloat(store.f350SalePrice)||0,truckRemaining=Math.max(0,price-paid),otherDebt=parseFloat(store.f350OtherDebt)||0,remaining=truckRemaining+otherDebt,percent=price?Math.min(100,paid/price*100):0;
       document.getElementById("f350PriceInput").value=store.f350SalePrice||"";
       document.getElementById("f350MonthText").innerText=money(monthPaid);
       document.getElementById("f350PaidText").innerText=money(paid);
+      document.getElementById("f350TruckBalanceText").innerText=price?money(truckRemaining):"Enter sale price";
+      document.getElementById("f350OtherDebtText").innerText=money(otherDebt);
       document.getElementById("f350RemainingText").innerText=price?money(remaining):"Enter sale price";
       document.getElementById("f350Progress").style.width=percent+"%";
-      document.getElementById("f350ProgressLabel").innerText=price?percent.toFixed(1)+"% paid — "+money(remaining)+" remaining.":"Enter the sale price to see her progress.";
+      document.getElementById("f350ProgressLabel").innerText=price?percent.toFixed(1)+"% of the truck paid — "+money(truckRemaining)+" truck balance, plus "+money(otherDebt)+" other money owed.":"Enter the sale price to see her progress.";
     }
     function calculate(){
       const pay=tabPay(),savings=pay*.20,total=tabItems().reduce((sum,item)=>sum+(parseFloat(item.amount)||0),0);
