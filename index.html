@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Personal Budget</title>
+  <style>
+    :root {
+      --bg: #0b1329;
+      --card: #172242;
+      --border: #283764;
+      --accent: #38bdf8;
+      --green: #22c55e;
+      --red: #f43f5e;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 16px; padding-bottom: 60px; max-width: 500px; margin: 0 auto; }
+    h1 { font-size: 1.3rem; font-weight: 700; text-align: center; margin-bottom: 14px; letter-spacing: 0.5px; }
+    
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tab-btn { flex: 1; padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--card); color: var(--muted); font-weight: 600; font-size: 0.9rem; cursor: pointer; }
+    .tab-btn.active { background: #0284c7; color: white; border-color: var(--accent); }
+
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+    .card h2 { font-size: 1rem; color: var(--accent); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .input-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+    .input-row label { font-size: 0.8rem; color: var(--muted); }
+    input[type="number"], input[type="text"] { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: #0b1329; color: white; font-size: 1rem; }
+
+    .item-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); gap: 8px; }
+    .item-row:last-child { border-bottom: none; }
+    .item-name { flex: 1; font-size: 0.95rem; }
+    .item-input-wrap { width: 110px; }
+    .item-input-wrap input { text-align: right; }
+    .del-btn { background: none; border: none; color: var(--red); font-size: 1.1rem; cursor: pointer; padding: 0 4px; }
+
+    .add-box { display: flex; gap: 8px; margin-top: 10px; }
+    .add-box input[type="text"] { flex: 1; font-size: 0.85rem; }
+    .add-box input[type="number"] { width: 90px; font-size: 0.85rem; }
+    .btn-add { background: #0284c7; border: none; color: white; padding: 0 14px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    .stat-box { background: #0b1329; padding: 12px; border-radius: 8px; border: 1px solid var(--border); }
+    .stat-box span { font-size: 0.75rem; color: var(--muted); display: block; margin-bottom: 4px; }
+    .stat-box strong { font-size: 1.15rem; color: var(--green); display: block; }
+    .stat-box.full { grid-column: span 2; }
+    .stat-box strong.net { color: var(--accent); font-size: 1.3rem; }
+  </style>
+</head>
+<body>
+
+  <h1>Budget & Cash Flow</h1>
+
+  <div class="tabs">
+    <button id="tab-15th" class="tab-btn active" onclick="switchTab('15th')">15th Pay Period</button>
+    <button id="tab-eom" class="tab-btn" onclick="switchTab('eom')">End of Month</button>
+  </div>
+
+  <!-- Income & Savings Card -->
+  <div class="card">
+    <h2>Take-Home Pay & Savings</h2>
+    <div class="input-row">
+      <label>Take-Home Pay Received ($)</label>
+      <input type="number" id="payInput" placeholder="Enter amount (e.g. 7766)" oninput="updateData()">
+    </div>
+    <div class="stat-grid">
+      <div class="stat-box">
+        <span>Target Savings (20%)</span>
+        <strong id="savingsText">$0.00</strong>
+      </div>
+      <div class="stat-box">
+        <span>Total Outflows</span>
+        <strong id="outflowText" style="color: #fb923c;">$0.00</strong>
+      </div>
+      <div class="stat-box full">
+        <span>Discretionary Cash (After Bills & 20% Savings)</span>
+        <strong id="remainingText" class="net">$0.00</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- Expenses Card -->
+  <div class="card">
+    <h2 id="periodTitle">Expenses & Paybacks</h2>
+    <div id="itemList"></div>
+
+    <div class="add-box">
+      <input type="text" id="newItemName" placeholder="New bill or payback">
+      <input type="number" id="newItemAmount" placeholder="$">
+      <button class="btn-add" onclick="addItem()">+ Add</button>
+    </div>
+  </div>
+
+  <script>
+    const defaultData = {
+      "15th": {
+        pay: "",
+        items: [
+          { name: "Valerie", amount: 935 },
+          { name: "Justine", amount: 413 },
+          { name: "Insurance", amount: 200 },
+          { name: "Phone", amount: 300 },
+          { name: "Logan (2000 F-350)", amount: 500 }
+        ]
+      },
+      "eom": {
+        pay: "",
+        items: [
+          { name: "Rent", amount: 1000 },
+          { name: "Valerie", amount: 935 },
+          { name: "Justine", amount: 412 },
+          { name: "Spotify", amount: 25 }
+        ]
+      }
+    };
+
+    let currentTab = "15th";
+    let store = JSON.parse(localStorage.getItem("budget_app_data")) || defaultData;
+
+    function saveStore() {
+      localStorage.setItem("budget_app_data", JSON.stringify(store));
+    }
+
+    function switchTab(tab) {
+      currentTab = tab;
+      document.getElementById("tab-15th").classList.toggle("active", tab === "15th");
+      document.getElementById("tab-eom").classList.toggle("active", tab === "eom");
+      document.getElementById("periodTitle").innerText = tab === "15th" ? "15th Bills & Paybacks" : "End of Month Bills";
+      document.getElementById("payInput").value = store[currentTab].pay || "";
+      renderItems();
+      calculate();
+    }
+
+    function renderItems() {
+      const container = document.getElementById("itemList");
+      container.innerHTML = "";
+      const items = store[currentTab].items;
+
+      items.forEach((item, index) => {
+        const row = document.createElement("div");
+        row.className = "item-row";
+        row.innerHTML = `
+          <span class="item-name">${item.name}</span>
+          <div class="item-input-wrap">
+            <input type="number" value="${item.amount || ''}" onchange="updateItemAmount(${index}, this.value)" placeholder="0">
+          </div>
+          <button class="del-btn" onclick="removeItem(${index})">&times;</button>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    function updateItemAmount(index, val) {
+      store[currentTab].items[index].amount = parseFloat(val) || 0;
+      saveStore();
+      calculate();
+    }
+
+    function addItem() {
+      const nameInput = document.getElementById("newItemName");
+      const amtInput = document.getElementById("newItemAmount");
+      const name = nameInput.value.trim();
+      const amount = parseFloat(amtInput.value) || 0;
+
+      if (!name) return;
+      store[currentTab].items.push({ name, amount });
+      saveStore();
+      nameInput.value = "";
+      amtInput.value = "";
+      renderItems();
+      calculate();
+    }
+
+    function removeItem(index) {
+      store[currentTab].items.splice(index, 1);
+      saveStore();
+      renderItems();
+      calculate();
+    }
+
+    function updateData() {
+      store[currentTab].pay = document.getElementById("payInput").value;
+      saveStore();
+      calculate();
+    }
+
+    function calculate() {
+      const pay = parseFloat(store[currentTab].pay) || 0;
+      const savings = pay * 0.20;
+      const totalOutflows = store[currentTab].items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+      const remaining = pay - totalOutflows - savings;
+
+      document.getElementById("savingsText").innerText = "$" + savings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      document.getElementById("outflowText").innerText = "$" + totalOutflows.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      
+      const remEl = document.getElementById("remainingText");
+      remEl.innerText = "$" + remaining.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      remEl.style.color = remaining < 0 ? "var(--red)" : "var(--accent)";
+    }
+
+    // Initial render
+    switchTab("15th");
+  </script>
+</body>
+</html>
