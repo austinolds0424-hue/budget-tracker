@@ -125,6 +125,16 @@
     <div class="progress-track" aria-label="F-350 payment progress"><div id="f350Progress" class="progress-fill"></div></div>
     <p id="f350ProgressLabel" class="compact-note">Enter the sale price to see her progress.</p>
   </div>
+
+  <div id="loganCard" class="card">
+    <h2>Money Owed — Logan</h2>
+    <div class="stat-grid">
+      <div class="stat-box"><span>Sent to Logan</span><strong id="loganSentText">$0.00</strong></div>
+      <div class="stat-box"><span>Paid Back</span><strong id="loganRepaidText">$0.00</strong></div>
+      <div class="stat-box full"><span>Still Owing</span><strong id="loganOwingText" class="net">$0.00</strong></div>
+    </div>
+    <p class="compact-note">Includes Logan, Logan New and Logan Davis. Logan Bruner is excluded.</p>
+  </div>
   </main>
 
   <section id="yearView" class="card" hidden>
@@ -289,6 +299,7 @@
         });
         if(payload.f350SalePrice!==undefined)store.f350SalePrice=String(payload.f350SalePrice);
         if(payload.f350OtherDebt!==undefined)store.f350OtherDebt=parseFloat(payload.f350OtherDebt)||0;
+        if(payload.loganDebt)store.loganDebt={sent:parseFloat(payload.loganDebt.sent)||0,repaid:parseFloat(payload.loganDebt.repaid)||0};
         saveStore();
         history.replaceState(null,"",location.pathname+location.search);
         alert("Vehicle payments updated.");
@@ -352,9 +363,10 @@
       document.getElementById("transferBreakdownCard").style.display=monthly?"block":"none";
       document.getElementById("vehicleCard").style.display=monthly?"block":"none";
       document.getElementById("f350Card").style.display=monthly?"block":"none";
+      document.getElementById("loganCard").style.display=monthly?"block":"none";
       document.getElementById("actualSavingsInput").value=activeData().actualSaved||"";
       document.getElementById("remainingLabel").innerText=monthly?"Left Over (After Bills & Actual Savings)":"Discretionary Cash (After Bills & 20% Savings)";
-      renderItems();renderTransfers();calculate();renderF350();
+      renderItems();renderTransfers();calculate();renderF350();renderLogan();
     }
 
     function renderItems(){
@@ -404,6 +416,12 @@
       document.getElementById("f350RemainingText").innerText=price?money(remaining):"Enter sale price";
       document.getElementById("f350Progress").style.width=percent+"%";
       document.getElementById("f350ProgressLabel").innerText=price?percent.toFixed(1)+"% of the truck paid — "+money(truckRemaining)+" truck balance, plus "+money(otherDebt)+" other money owed.":"Enter the sale price to see her progress.";
+    }
+    function renderLogan(){
+      const debt=store.loganDebt||{sent:0,repaid:0},sent=parseFloat(debt.sent)||0,repaid=parseFloat(debt.repaid)||0;
+      document.getElementById("loganSentText").innerText=money(sent);
+      document.getElementById("loganRepaidText").innerText=money(repaid);
+      document.getElementById("loganOwingText").innerText=money(Math.max(0,sent-repaid));
     }
     function calculate(){
       const pay=tabPay(),savings=pay*.20,total=tabItems().reduce((sum,item)=>sum+(parseFloat(item.amount)||0),0);
